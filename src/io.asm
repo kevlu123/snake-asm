@@ -5,6 +5,7 @@
     global GetDownKey
     global GetLeftKey
     global GetRightKey
+    global GetSpaceKey
     global Sleep
 
 ; HANDLE WINAPI GetStdHandle(
@@ -82,7 +83,7 @@ Print:
     leave
     ret
 
-; int GetKey(uint32_t keycode)
+; int GetKey(uint32_t keycode);
 GetKey:
     enter   0, 0
 
@@ -96,7 +97,7 @@ GetKey:
     leave
     ret
 
-; int GetUpKey()
+; int GetUpKey();
 GetUpKey:
     enter   0, 0
 
@@ -107,7 +108,7 @@ GetUpKey:
     leave
     ret
 
-; int GetDownKey()
+; int GetDownKey();
 GetDownKey:
     enter   0, 0
 
@@ -118,7 +119,7 @@ GetDownKey:
     leave
     ret
 
-; int GetLeftKey()
+; int GetLeftKey();
 GetLeftKey:
     enter   0, 0
 
@@ -129,7 +130,7 @@ GetLeftKey:
     leave
     ret
 
-; int GetRightKey()
+; int GetRightKey();
 GetRightKey:
     enter   0, 0
 
@@ -140,7 +141,7 @@ GetRightKey:
     leave
     ret
 
-; int GetSpaceKey()
+; int GetSpaceKey();
 GetSpaceKey:
     enter   0, 0
 
