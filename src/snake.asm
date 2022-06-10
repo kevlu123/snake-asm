@@ -38,6 +38,14 @@ LF_CHAR:            EQU 0Ah ; '\n'
 
     section .data
 
+title_screen:
+            db '###### ##   # ######  ##  #  ######', LF_CHAR
+            db '##     ###  # ##   #  ## #   ##    ', LF_CHAR
+            db '###### ## # # ######  ####   ####  ', LF_CHAR
+            db '     # ##  ## ##   #  ##  #  ##    ', LF_CHAR
+            db '###### ##   # ##   #  ##   # ######', LF_CHAR
+title_screen_end:
+
 frame_sep:  times 20 db CR_CHAR, LF_CHAR ; Some arbitrary number of timess
 frame_sep_end:
 screen_buf: times SCREEN_BUF_SIZE db 20h
@@ -74,9 +82,43 @@ _main:
 RunMainMenu:
     enter   0, 0
 
+    ; Display title
+    push    title_screen_end - title_screen
+    push    title_screen
+    call    Print
+    add     esp, 8
 
+    ; Wait for difficulty select
+main_menu_loop:
+    push    16
+    call    Sleep
+    pop     eax
+
+    call    Get1Key
+    cmp     eax, 0
+    jne     easy_select
+
+    call    Get2Key
+    cmp     eax, 0
+    jne     med_select
+
+    call    Get3Key
+    cmp     eax, 0
+    jne     hard_select
+
+    jmp     main_menu_loop
+
+easy_select:
+    mov     dword [frame_dur], EASY_FRAME_DUR
+    jmp     main_menu_end
+med_select:
     mov     dword [frame_dur], MED_FRAME_DUR
+    jmp     main_menu_end
+hard_select:
+    mov     dword [frame_dur], HARD_FRAME_DUR
+    jmp     main_menu_end
 
+main_menu_end:
     leave
     ret
 
@@ -436,6 +478,10 @@ RunLoseLoop:
 
     ; Wait until space bar pressed
 waiting_for_reset:
+    push    16
+    call    Sleep
+    pop     eax
+
     call    GetSpaceKey
     cmp     eax, 0
     mov     ebx, 0
