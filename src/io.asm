@@ -1,12 +1,17 @@
     global InitIO
     global Print
     global Exit
+    global Sleep
+    
     global GetUpKey
     global GetDownKey
     global GetLeftKey
     global GetRightKey
     global GetSpaceKey
-    global Sleep
+    global GetEscKey
+    global Get1Key
+    global Get2Key
+    global Get3Key
 
 ; HANDLE WINAPI GetStdHandle(
 ;  _In_ DWORD nStdHandle
@@ -64,8 +69,9 @@ Exit:
 
 ; void Print(const char* buf, uint32_t len);
 Print:
-    enter   4, 0
+    enter   0, 0
     push    ebx
+    sub     esp, 4
     
     mov     eax, esp        ; dummy buffer address
     lea     ebx, [ebp+12]   ; len
@@ -79,7 +85,19 @@ Print:
     call    _WriteFile@20
     add     esp, 20
 
+    add     esp, 4
     pop     ebx
+    leave
+    ret
+
+Sleep:
+    enter   0, 0
+
+    mov     eax, [ebp+8]
+    push    eax
+    call    _Sleep@4
+    pop     eax
+
     leave
     ret
 
@@ -152,13 +170,46 @@ GetSpaceKey:
     leave
     ret
 
-Sleep:
+; int GetEscKey();
+GetEscKey:
     enter   0, 0
 
-    mov     eax, [ebp+8]
-    push    eax
-    call    _Sleep@4
-    pop     eax
+    push    1Bh
+    call    GetKey
+    pop     ecx
+
+    leave
+    ret
+
+; int Get1Key();
+Get1Key:
+    enter   0, 0
+
+    push    31h
+    call    GetKey
+    pop     ecx
+
+    leave
+    ret
+
+; int Get2Key();
+Get2Key:
+    enter   0, 0
+
+    push    32h
+    call    GetKey
+    pop     ecx
+
+    leave
+    ret
+
+; int Get3Key();
+Get3Key:
+    enter   0, 0
+
+    push    33h
+    call    GetKey
+    pop     ecx
 
     leave
     ret

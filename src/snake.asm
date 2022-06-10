@@ -7,6 +7,10 @@
     extern GetLeftKey
     extern GetRightKey
     extern GetSpaceKey
+    extern GetEscKey
+    extern Get1Key
+    extern Get2Key
+    extern Get3Key
     extern Sleep
     extern IncrWithMod
     extern Multiply
@@ -361,7 +365,8 @@ FoodEaten:
 
 ; uint32_t CheckCollision(uint32_t x, uint32_t y);
 CheckCollision:
-    enter   8, 0
+    enter   0, 0
+    sub     esp, 8
 
     mov     ecx, [ebp+8]  ; x
     mov     edx, [ebp+12] ; y
@@ -378,8 +383,8 @@ CheckCollision:
     je      check_collision_end
 
     ; Check body collision
-    mov     [esp+4], ecx
-    mov     [esp+8], edx
+    mov     [esp], ecx
+    mov     [esp+4], edx
     lea     eax, [esp+4]
     push    1
     push    eax
@@ -392,6 +397,7 @@ CheckCollision:
 
     mov     eax, 0
 check_collision_end:
+    add     esp, 8
     leave
     ret
 
@@ -433,6 +439,11 @@ waiting_for_reset:
     call    GetSpaceKey
     cmp     eax, 0
     mov     ebx, 0
+    jne     stop_lose_loop
+
+    call    GetEscKey
+    cmp     eax, 0
+    mov     ebx, 1
     jne     stop_lose_loop
 
     jmp     waiting_for_reset
