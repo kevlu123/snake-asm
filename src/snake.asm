@@ -61,32 +61,40 @@ main_loop:
     call    GetDownKey
     cmp     eax, 0
     je      not_pressing_down
-    mov     dword [vel_x], 0
-    mov     dword [vel_y], 1
+    push    1
+    push    0
+    call    TryChangeDirection
+    add     esp, 8
 not_pressing_down:
 
     ; Move up
     call    GetUpKey
     cmp     eax, 0
     je      not_pressing_up
-    mov     dword [vel_x], 0
-    mov     dword [vel_y], -1
+    push    -1
+    push    0
+    call    TryChangeDirection
+    add     esp, 8
 not_pressing_up:
 
     ; Move right
     call    GetRightKey
     cmp     eax, 0
     je      not_pressing_right
-    mov     dword [vel_x], 1
-    mov     dword [vel_y], 0
+    push    0
+    push    1
+    call    TryChangeDirection
+    add     esp, 8
 not_pressing_right:
 
     ; Move left
     call    GetLeftKey
     cmp     eax, 0
     je      not_pressing_left
-    mov     dword [vel_x], -1
-    mov     dword [vel_y], 0
+    push    0
+    push    -1
+    call    TryChangeDirection
+    add     esp, 8
 not_pressing_left:
 
     ; Calculate new position
@@ -394,5 +402,31 @@ skip_first:
     mov     eax, 1
 body_iter_end:
     pop     ebx
+    leave
+    ret
+
+; void TryChangeDirection(uint32_t new_vel_x, uint32_t new_vel_y);
+TryChangeDirection:
+    enter   0, 0
+    push    ebx
+
+    mov     eax, [ebp+8]  ; new_vel_x
+    mov     ebx, [ebp+12] ; new_vel_y
+    mov     ecx, [vel_x]  ; vel_x
+    mov     edx, [vel_y]  ; vel_y
+
+    ; Fancy bit hacks to check if new direction is valid
+    add     ecx, eax
+    add     edx, ebx
+    and     ecx, edx
+    cmp     ecx, 0
+    je      change_dir_end
+
+    ; Apply new direction
+    mov     [vel_x], eax
+    mov     [vel_y], ebx
+
+change_dir_end:
+    pop ebx
     leave
     ret
