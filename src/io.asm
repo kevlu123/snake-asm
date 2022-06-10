@@ -64,6 +64,7 @@ Exit:
 ; void Print(const char* buf, uint32_t len);
 Print:
     enter   4, 0
+    push    ebx
     
     mov     eax, esp        ; dummy buffer address
     lea     ebx, [ebp+12]   ; len
@@ -77,6 +78,7 @@ Print:
     call    _WriteFile@20
     add     esp, 20
 
+    pop     ebx
     leave
     ret
 
@@ -87,7 +89,7 @@ GetKey:
     mov     eax, [ebp+8]
     push    eax
     call    _GetAsyncKeyState@4
-    pop     ebx
+    pop     ecx
 
     and     eax, 8000h
 
@@ -100,7 +102,7 @@ GetUpKey:
 
     push    26h
     call    GetKey
-    pop     ebx
+    pop     ecx
 
     leave
     ret
@@ -111,7 +113,7 @@ GetDownKey:
 
     push    28h
     call    GetKey
-    pop     ebx
+    pop     ecx
 
     leave
     ret
@@ -122,7 +124,7 @@ GetLeftKey:
 
     push    25h
     call    GetKey
-    pop     ebx
+    pop     ecx
 
     leave
     ret
@@ -133,7 +135,7 @@ GetRightKey:
 
     push    27h
     call    GetKey
-    pop     ebx
+    pop     ecx
 
     leave
     ret
@@ -144,7 +146,7 @@ GetSpaceKey:
 
     push    20h
     call    GetKey
-    pop     ebx
+    pop     ecx
 
     leave
     ret
