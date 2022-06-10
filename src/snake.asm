@@ -14,21 +14,31 @@
     extern TickRand
     extern Rand
 
-FRAME_DURATION:     EQU 200
-SCREEN_WIDTH:       EQU 120
-SCREEN_HEIGHT:      EQU 29
-SCREEN_SIZE:        EQU (SCREEN_WIDTH * SCREEN_HEIGHT)
-MAX_BODY_SIZE:      EQU SCREEN_SIZE
+; Configurable properties
+FRAME_DURATION:     EQU 50
+SCREEN_WIDTH:       EQU 40
+SCREEN_HEIGHT:      EQU 16
 STARTING_FOOD_X:    EQU 20
-STARTING_FOOD_Y:    EQU 10
+STARTING_FOOD_Y:    EQU SCREEN_HEIGHT / 2
+BACKGROUND_CHAR:    EQU 2Eh ; '.'
+PLAYER_CHAR:        EQU 23h ; '#'
+FOOD_CHAR:          EQU 40h ; '@'
+
+SCREEN_SIZE:        EQU (SCREEN_WIDTH * SCREEN_HEIGHT)
+SCREEN_BUF_SIZE:    EQU (SCREEN_SIZE + 2 * SCREEN_HEIGHT) ; Includes \r\n
+MAX_BODY_SIZE:      EQU SCREEN_SIZE
+CR_CHAR:            EQU 0Dh ; '\r'
+LF_CHAR:            EQU 0Ah ; '\n'
 
     section .data
 
-screen_buf: times SCREEN_SIZE db 20h
-init_body:  dd 1, 13, 2, 13, 3, 13, 4, 13
+frame_sep:  times 20 db CR_CHAR, LF_CHAR ; Some arbitrary number of timess
+frame_sep_end:
+screen_buf: times SCREEN_BUF_SIZE db 20h
+
+init_body:  dd 1, SCREEN_HEIGHT / 2, 2, SCREEN_HEIGHT / 2, 3, SCREEN_HEIGHT / 2
 init_body_end:
-; struct { uint32_t x, y; } body[SCREEN_SIZE] = {0};
-body:       times SCREEN_SIZE * 2 dd 0
+body:       times SCREEN_SIZE * 2 dd 0 ; struct { uint32_t x, y; } body[SCREEN_SIZE] = {0};
 head:       dd 0
 tail:       dd 0
 player_x:   dd 0
@@ -65,6 +75,8 @@ main_loop:
     push    0
     call    TryChangeDirection
     add     esp, 8
+    cmp     eax, 0
+    jne     end_move
 not_pressing_down:
 
     ; Move up
@@ -75,6 +87,8 @@ not_pressing_down:
     push    0
     call    TryChangeDirection
     add     esp, 8
+    cmp     eax, 0
+    jne     end_move
 not_pressing_up:
 
     ; Move right
@@ -85,6 +99,8 @@ not_pressing_up:
     push    1
     call    TryChangeDirection
     add     esp, 8
+    cmp     eax, 0
+    jne     end_move
 not_pressing_right:
 
     ; Move left
@@ -95,7 +111,10 @@ not_pressing_right:
     push    -1
     call    TryChangeDirection
     add     esp, 8
+    cmp     eax, 0
+    jne     end_move
 not_pressing_left:
+end_move:
 
     ; Calculate new position
     mov     ecx, [player_x]
@@ -200,40 +219,62 @@ init_snake_loop:
     leave
     ret
 
+; void ClearScreen();
+ClearScreen:
+    enter   0, 0
+    
+    ; Fill with '.'
+    mov     ecx, 0
+clr_scr_loop:
+    mov     byte [screen_buf+ecx], BACKGROUND_CHAR
+    inc     ecx
+    cmp     ecx, SCREEN_BUF_SIZE
+    jne     clr_scr_loop
+
+    ; Add newlines
+    mov     ecx, 0
+fill_newline_loop:
+    inc     ecx
+    push    ecx
+    push    SCREEN_WIDTH + 2
+    push    ecx
+    call    Multiply
+    add     esp, 8
+    pop     ecx
+    mov     byte [screen_buf+eax-2], CR_CHAR
+    mov     byte [screen_buf+eax-1], LF_CHAR
+    cmp     ecx, SCREEN_HEIGHT
+    jne     fill_newline_loop
+
+    leave
+    ret
+
 ; void DrawScreen();
 DrawScreen:
     enter   0, 0
-    push    ebx
 
-    ; Clear screen buffer
-    mov     ecx, 0
-clr_scr_loop:
-    mov     byte [screen_buf+ecx], 2Eh
-    inc     ecx
-    cmp     ecx, SCREEN_SIZE
-    jne     clr_scr_loop
+    call    ClearScreen
 
     ; Draw player
     push    0
-    push    23h
+    push    PLAYER_CHAR
     push    DrawChar
     call    IterateBody
     add     esp, 12
 
     ; Draw food
-    push    40h
+    push    FOOD_CHAR
     push    dword [food_y]
     push    dword [food_x]
     call    DrawChar
     add     esp, 12
 
-    ; Draw screen
-    push    SCREEN_SIZE
-    push    screen_buf
+    ; Draw frame separator and frame to console
+    push    SCREEN_BUF_SIZE + (frame_sep_end - frame_sep)
+    push    frame_sep
     call    Print
     add     esp, 8
 
-    pop     ebx
     leave
     ret
 
@@ -243,7 +284,7 @@ DrawChar:
 
     ; Calculate index into screen buffer
     push    ecx
-    push    SCREEN_WIDTH
+    push    SCREEN_WIDTH + 2
     push    dword [ebp+12]
     call    Multiply
     add     esp, 8
@@ -359,7 +400,7 @@ waiting_for_reset:
     leave
     ret
 
-; bool IterateBody(bool(*fn)(uint32_t x, uint32_t y, void* userdata), void* userdata, bool skipFirst);
+; uint32_t IterateBody(uint32_t(*fn)(uint32_t x, uint32_t y, void* userdata), void* userdata, uint32_t skipFirst);
 IterateBody:
     enter   0, 0
     push    ebx
@@ -405,7 +446,7 @@ body_iter_end:
     leave
     ret
 
-; void TryChangeDirection(uint32_t new_vel_x, uint32_t new_vel_y);
+; uint32_t TryChangeDirection(uint32_t new_vel_x, uint32_t new_vel_y);
 TryChangeDirection:
     enter   0, 0
     push    ebx
@@ -420,12 +461,15 @@ TryChangeDirection:
     add     edx, ebx
     and     ecx, edx
     cmp     ecx, 0
+    mov     ecx, eax
+    mov     eax, 0
     je      change_dir_end
 
     ; Apply new direction
-    mov     [vel_x], eax
+    mov     [vel_x], ecx
     mov     [vel_y], ebx
 
+    mov     eax, 1
 change_dir_end:
     pop ebx
     leave
