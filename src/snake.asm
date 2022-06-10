@@ -6,6 +6,7 @@
     extern GetDownKey
     extern GetLeftKey
     extern GetRightKey
+    extern GetSpaceKey
     extern Sleep
     extern IncrWithMod
     extern Multiply
@@ -13,7 +14,7 @@
     extern TickRand
     extern Rand
 
-FRAME_DURATION:     EQU 16
+FRAME_DURATION:     EQU 200
 SCREEN_WIDTH:       EQU 120
 SCREEN_HEIGHT:      EQU 29
 SCREEN_SIZE:        EQU (SCREEN_WIDTH * SCREEN_HEIGHT)
@@ -24,7 +25,7 @@ STARTING_FOOD_Y:    EQU 10
     section .data
 
 screen_buf: times SCREEN_SIZE db 20h
-init_body:  dd 1, 13, 2, 13, 3, 13
+init_body:  dd 1, 13, 2, 13, 3, 13, 4, 13
 init_body_end:
 ; struct { uint32_t x, y; } body[SCREEN_SIZE] = {0};
 body:       times SCREEN_SIZE * 2 dd 0
@@ -88,7 +89,7 @@ not_pressing_right:
     mov     dword [vel_y], 0
 not_pressing_left:
 
-    ; Move snake
+    ; Calculate new position
     mov     ecx, [player_x]
     add     ecx, [vel_x]
     mov     [player_x], ecx
@@ -96,6 +97,22 @@ not_pressing_left:
     add     edx, [vel_y]
     mov     [player_y], edx
 
+    ; Check if snake has collided with wall or itself
+    push    ecx
+    push    edx
+    push    edx
+    push    ecx
+    call    CheckCollision
+    add     esp, 8
+    pop     edx
+    pop     ecx
+    cmp     eax, 0
+    je      hasnt_lost
+    call    RunLoseLoop
+    jmp     main_loop
+hasnt_lost:
+
+    ; Move snake
     mov     eax, [head]
     shl     eax, 3
     add     eax, body
@@ -157,8 +174,8 @@ init_snake_loop:
     mov     [player_y], eax
 
     ; Set head and tail index
-    mov     dword [head], 3 ; Exclusive
-    mov     dword [tail], 0 ; Inclusive
+    mov     dword [head], (init_body_end - init_body) / 8
+    mov     dword [tail], 0
 
     ; Set direction
     mov     dword [vel_x], 1
@@ -185,39 +202,22 @@ DrawScreen:
 clr_scr_loop:
     mov     byte [screen_buf+ecx], 2Eh
     inc     ecx
-    cmp     ecx, SCREEN_SIZE - SCREEN_WIDTH
+    cmp     ecx, SCREEN_SIZE
     jne     clr_scr_loop
 
     ; Draw player
-    mov     ecx, [tail] ; Start index
-    mov     ebx, [head] ; End index
-draw_player_loop:
-    push    ecx    
-    mov     eax, ecx
-    shl     eax, 3
-    add     eax, body
+    push    0
     push    23h
-    push    dword [eax+4]
-    push    dword [eax]
-    call    DrawChar
+    push    DrawChar
+    call    IterateBody
     add     esp, 12
-    pop     ecx
-    ; Increment loop counter with wrapping
-    push    MAX_BODY_SIZE
-    push    ecx
-    call    IncrWithMod
-    add     esp, 8
-    mov     ecx, eax
-    ; End of loop
-    cmp     ecx, ebx
-    jne     draw_player_loop
 
     ; Draw food
     push    40h
     push    dword [food_y]
     push    dword [food_x]
     call    DrawChar
-    add     esp, 8
+    add     esp, 12
 
     ; Draw screen
     push    SCREEN_SIZE
@@ -257,17 +257,142 @@ FoodEaten:
     push    SCREEN_WIDTH
     push    0
     call    Rand
-    mov     [food_x], eax
     add     esp, 8
+    mov     [food_x], eax
 
     push    SCREEN_HEIGHT
     push    0
     call    Rand
-    mov     [food_y], eax
     add     esp, 8
+    mov     [food_y], eax
     
     ; Increment score
     inc     dword [score]
 
+    leave
+    ret
+
+; uint32_t CheckCollision(uint32_t x, uint32_t y);
+CheckCollision:
+    enter   8, 0
+
+    mov     ecx, [ebp+8]  ; x
+    mov     edx, [ebp+12] ; y
+
+    ; Check wall collision
+    mov     eax, 1
+    cmp     ecx, -1
+    je      check_collision_end
+    cmp     edx, -1
+    je      check_collision_end
+    cmp     ecx, SCREEN_WIDTH
+    je      check_collision_end
+    cmp     edx, SCREEN_HEIGHT
+    je      check_collision_end
+
+    ; Check body collision
+    mov     [esp+4], ecx
+    mov     [esp+8], edx
+    lea     eax, [esp+4]
+    push    1
+    push    eax
+    push    CheckBodyCollision
+    call    IterateBody
+    add     esp, 12
+    cmp     eax, 0
+    mov     eax, 1
+    je      check_collision_end
+
+    mov     eax, 0
+check_collision_end:
+    leave
+    ret
+
+; uint32_t CheckBodyCollision(uint32_t x, uint32_t y, void* userdata);
+; Returns 0 if there was a collision, otherwise 1.
+CheckBodyCollision:
+    enter   0, 0
+    push    ebx
+
+    mov     eax, [ebp+16]
+    mov     ecx, [eax]
+    mov     edx, [eax+4]
+
+    mov     eax, [ebp+8]
+    mov     ebx, [ebp+12]
+
+    cmp     eax, ecx
+    mov     eax, 1
+    jne     check_body_collision_end
+
+    cmp     ebx, edx
+    mov     eax, 1
+    jne     check_body_collision_end
+
+    mov     eax, 0
+check_body_collision_end:
+    pop     ebx
+    leave
+    ret
+
+; void RunLoseLoop();
+RunLoseLoop:
+    enter   0, 0
+
+    ; Wait until space bar pressed
+waiting_for_reset:
+    call    GetSpaceKey
+    cmp     eax, 0
+    je      waiting_for_reset
+
+    ; Reinitialize game
+    call InitGame
+
+    leave
+    ret
+
+; bool IterateBody(bool(*fn)(uint32_t x, uint32_t y, void* userdata), void* userdata, bool skipFirst);
+IterateBody:
+    enter   0, 0
+    push    ebx
+
+    mov     ecx, [tail] ; Start index
+    mov     ebx, [head] ; End index
+
+    mov     eax, [ebp+16]
+    cmp     eax, 0
+    jne     skip_first
+
+iterate_body_loop:
+    push    ecx    
+    mov     eax, ecx
+    shl     eax, 3
+    add     eax, body
+    push    dword [ebp+12]
+    push    dword [eax+4]
+    push    dword [eax]
+    call    dword [ebp+8]
+    add     esp, 12
+    pop     ecx
+
+    ; Check if should terminate
+    cmp     eax, 0
+    je      body_iter_end
+
+    ; Increment loop counter with wrapping
+skip_first:
+    push    MAX_BODY_SIZE
+    push    ecx
+    call    IncrWithMod
+    add     esp, 8
+    mov     ecx, eax
+
+    ; End of loop
+    cmp     ecx, ebx
+    jne     iterate_body_loop
+
+    mov     eax, 1
+body_iter_end:
+    pop     ebx
     leave
     ret
