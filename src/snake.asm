@@ -15,10 +15,12 @@
     extern Rand
 
 ; Configurable properties
-FRAME_DURATION:     EQU 50
+EASY_FRAME_DUR:     EQU 100
+MED_FRAME_DUR:      EQU 50
+HARD_FRAME_DUR:     EQU 25
 SCREEN_WIDTH:       EQU 40
-SCREEN_HEIGHT:      EQU 16
-STARTING_FOOD_X:    EQU 20
+SCREEN_HEIGHT:      EQU 28
+STARTING_FOOD_X:    EQU 30
 STARTING_FOOD_Y:    EQU SCREEN_HEIGHT / 2
 BACKGROUND_CHAR:    EQU 2Eh ; '.'
 PLAYER_CHAR:        EQU 23h ; '#'
@@ -48,19 +50,40 @@ vel_y:      dd 0
 food_x:     dd 0
 food_y:     dd 0
 score:      dd 0
+frame_dur:  dd 50
 
     section .text
+
 ; void main();
 _main:
     enter   0, 0
     
     call    InitIO
-
+    call    RunMainMenu
     call    InitGame
+    call    RunMainLoop
+
+    ; Does not return
+    call    Exit
+
+; void RunMainMenu();
+RunMainMenu:
+    enter   0, 0
+
+
+    mov     dword [frame_dur], MED_FRAME_DUR
+
+    leave
+    ret
+
+; void RunMainLoop();
+RunMainLoop:
+    enter   0, 0
+    push    ebx
 
 main_loop:
     ; Add delay
-    push    FRAME_DURATION
+    push    dword [frame_dur]
     call    Sleep
     pop     eax
 
@@ -135,7 +158,11 @@ end_move:
     pop     ecx
     cmp     eax, 0
     je      hasnt_lost
+
     call    RunLoseLoop
+    cmp     eax, 0
+    jne     end_main_loop
+
     jmp     main_loop
 hasnt_lost:
 
@@ -173,12 +200,15 @@ food_eaten:
     mov     [head], eax
     
     ; Draw frame to console
-    call    DrawScreen
+    call    DrawGame
+    call    PresentFrame
 
     jmp     main_loop
 
-    ; Does not return
-    call    Exit
+end_main_loop:
+    pop     ebx
+    leave
+    ret
 
 ; void InitGame();
 InitGame:
@@ -249,8 +279,22 @@ fill_newline_loop:
     leave
     ret
 
-; void DrawScreen();
-DrawScreen:
+
+; void PresentFrame();
+PresentFrame:
+    enter   0, 0
+
+    ; Draw both frame separator and visible frame
+    push    SCREEN_BUF_SIZE + (frame_sep_end - frame_sep)
+    push    frame_sep
+    call    Print
+    add     esp, 8
+
+    leave
+    ret
+
+; void DrawGame();
+DrawGame:
     enter   0, 0
 
     call    ClearScreen
@@ -268,12 +312,6 @@ DrawScreen:
     push    dword [food_x]
     call    DrawChar
     add     esp, 12
-
-    ; Draw frame separator and frame to console
-    push    SCREEN_BUF_SIZE + (frame_sep_end - frame_sep)
-    push    frame_sep
-    call    Print
-    add     esp, 8
 
     leave
     ret
@@ -384,19 +422,28 @@ check_body_collision_end:
     leave
     ret
 
-; void RunLoseLoop();
+; uint32_t RunLoseLoop();
+; Returns 1 if game should exit, otherwise 0
 RunLoseLoop:
     enter   0, 0
+    push    ebx
 
     ; Wait until space bar pressed
 waiting_for_reset:
     call    GetSpaceKey
     cmp     eax, 0
-    je      waiting_for_reset
+    mov     ebx, 0
+    jne     stop_lose_loop
+
+    jmp     waiting_for_reset
+
+stop_lose_loop:
 
     ; Reinitialize game
-    call InitGame
+    call    InitGame
 
+    mov     eax, ebx
+    pop     ebx
     leave
     ret
 
