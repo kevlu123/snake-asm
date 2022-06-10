@@ -7,12 +7,19 @@
     extern GetLeftKey
     extern GetRightKey
     extern Sleep
+    extern IncrWithMod
+    extern Multiply
+    extern Modulo
+    extern TickRand
+    extern Rand
 
-FRAME_DURATION:     EQU 100
+FRAME_DURATION:     EQU 16
 SCREEN_WIDTH:       EQU 120
 SCREEN_HEIGHT:      EQU 29
 SCREEN_SIZE:        EQU (SCREEN_WIDTH * SCREEN_HEIGHT)
 MAX_BODY_SIZE:      EQU SCREEN_SIZE
+STARTING_FOOD_X:    EQU 20
+STARTING_FOOD_Y:    EQU 10
 
     section .data
 
@@ -27,6 +34,9 @@ player_x:   dd 0
 player_y:   dd 0
 vel_x:      dd 0
 vel_y:      dd 0
+food_x:     dd 0
+food_y:     dd 0
+score:      dd 0
 
     section .text
 ; void main();
@@ -42,6 +52,9 @@ main_loop:
     push    FRAME_DURATION
     call    Sleep
     pop     eax
+
+    ; Update rng
+    call    TickRand
 
     ; Move down
     call    GetDownKey
@@ -89,17 +102,31 @@ not_pressing_left:
     mov     [eax], ecx
     mov     [eax+4], edx
 
-    ; Increment head and tail index with wrapping
-    push    MAX_BODY_SIZE
-    push    dword [head]
-    call    IncrWithMod
-    add     esp, 8
-    mov     [head], eax
+    ; Check if food is eaten
+    mov     eax, [food_x]
+    mov     ebx, [food_y]
+    cmp     eax, ecx
+    jne     food_not_eaten
+    cmp     ebx, edx
+    jne     food_not_eaten
+    call    FoodEaten
+    jmp     food_eaten
+food_not_eaten:
+
+    ; Increment tail
     push    MAX_BODY_SIZE
     push    dword [tail]
     call    IncrWithMod
     add     esp, 8
     mov     [tail], eax
+food_eaten:
+
+    ; Increment head
+    push    MAX_BODY_SIZE
+    push    dword [head]
+    call    IncrWithMod
+    add     esp, 8
+    mov     [head], eax
     
     ; Draw frame to console
     call    DrawScreen
@@ -137,6 +164,13 @@ init_snake_loop:
     mov     dword [vel_x], 1
     mov     dword [vel_y], 0
 
+    ; Set food position
+    mov     dword [food_x], STARTING_FOOD_X
+    mov     dword [food_y], STARTING_FOOD_Y
+
+    ; Reset score
+    mov     dword [score], 0
+
     pop     ebx
     leave
     ret
@@ -168,7 +202,6 @@ draw_player_loop:
     call    DrawChar
     add     esp, 12
     pop     ecx
-    
     ; Increment loop counter with wrapping
     push    MAX_BODY_SIZE
     push    ecx
@@ -178,6 +211,13 @@ draw_player_loop:
     ; End of loop
     cmp     ecx, ebx
     jne     draw_player_loop
+
+    ; Draw food
+    push    40h
+    push    dword [food_y]
+    push    dword [food_x]
+    call    DrawChar
+    add     esp, 8
 
     ; Draw screen
     push    SCREEN_SIZE
@@ -209,46 +249,25 @@ DrawChar:
     leave
     ret
 
-; uint32_t IncrWithMod(uint32_t x, uint32_t m);
-IncrWithMod:
+; void FoodEaten();
+FoodEaten:
     enter   0, 0
 
-    mov     eax, [ebp+8]
-    inc     eax
-    push    dword [ebp+12]
-    push    eax
-    call    Modulo
+    ; Pick new location for food
+    push    SCREEN_WIDTH
+    push    0
+    call    Rand
+    mov     [food_x], eax
     add     esp, 8
 
-    leave
-    ret
+    push    SCREEN_HEIGHT
+    push    0
+    call    Rand
+    mov     [food_y], eax
+    add     esp, 8
+    
+    ; Increment score
+    inc     dword [score]
 
-; uint32_t Multiply(uint32_t a, uint32_t b);
-Multiply:
-    enter   0, 0
-    push    ebx
-
-    mov     eax, [ebp+8]
-    mov     ebx, [ebp+12]
-    mul     bx
-
-    and     eax, 0FFFFh
-
-    pop     ebx
-    leave
-    ret
-
-; uint32_t Modulo(uint32_t a, uint32_t b);
-Modulo:
-    enter   0, 0
-    push    ebx
-
-    mov     eax, [ebp+8]
-    mov     edx, 0
-    mov     ebx, [ebp+12]
-    div     ebx
-    mov     eax, edx
-
-    pop     ebx
     leave
     ret
