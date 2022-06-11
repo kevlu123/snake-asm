@@ -39,11 +39,25 @@ LF_CHAR:            EQU 0Ah ; '\n'
     section .data
 
 title_screen:
-            db '###### ##   # ######  ##  #  ######', LF_CHAR
-            db '##     ###  # ##   #  ## #   ##    ', LF_CHAR
-            db '###### ## # # ######  ####   ####  ', LF_CHAR
-            db '     # ##  ## ##   #  ##  #  ##    ', LF_CHAR
-            db '###### ##   # ##   #  ##   # ######', LF_CHAR
+            db LF_CHAR
+            db '    _____ _   _          _  ________   ', LF_CHAR
+            db '   / ____| \ | |   /\   | |/ /  ____|  ', LF_CHAR
+            db '  | (___ |  \| |  /  \  | . /| |__     ', LF_CHAR
+            db '   \___ \| . ` | / /\ \ |  < |  __|    ', LF_CHAR
+            db '   ____) | |\  |/ ____ \| . \| |____   ', LF_CHAR
+            db '  |_____/|_| \_/_/    \_\_|\_\______|  ', LF_CHAR
+            db '                                       ', LF_CHAR
+            db '               [ By Kev ]              ', LF_CHAR
+            db '                                       ', LF_CHAR
+            db '?-------------------------------------?', LF_CHAR
+            db '|                                     |', LF_CHAR
+            db '|              1.Easy                 |', LF_CHAR
+            db '|                                     |', LF_CHAR
+            db '|             2.Medium                |', LF_CHAR
+            db '|                                     |', LF_CHAR
+            db '|              3.Hard                 |', LF_CHAR
+            db '|                                     |', LF_CHAR
+            db '?-------------------------------------?', LF_CHAR
 title_screen_end:
 
 frame_sep:  times 20 db CR_CHAR, LF_CHAR ; Some arbitrary number of timess
