@@ -32,17 +32,23 @@ Multiply:
     leave
     ret
 
-; uint32_t Modulo(uint32_t a, uint32_t b);
+; uint32_t Modulo(uint32_t x, uint32_t m);
 Modulo:
     enter   0, 0
-    push    ebx
 
-    mov     eax, [ebp+8]
-    mov     edx, 0
-    mov     ebx, [ebp+12]
-    div     ebx
-    mov     eax, edx
+    mov     eax, [ebp+8]  ; x
+    mov     edx, [ebp+12] ; m
 
-    pop     ebx
+mod_loop:
+    cmp     eax, 0
+    jl      is_negative
+    cmp     eax, edx
+    jge     is_greater
     leave
     ret
+is_negative:
+    add     eax, edx
+    jmp     mod_loop
+is_greater:
+    sub     eax, edx
+    jmp     mod_loop

@@ -202,9 +202,18 @@ end_move:
     ; Calculate new position
     mov     ecx, [player_x]
     add     ecx, [vel_x]
+    push    SCREEN_WIDTH
+    push    ecx
+    call    Modulo
+    mov     ecx, eax
     mov     [player_x], ecx
+
     mov     edx, [player_y]
     add     edx, [vel_y]
+    push    SCREEN_HEIGHT
+    push    edx
+    call    Modulo
+    mov     edx, eax
     mov     [player_y], edx
 
     ; Check if snake has collided with wall or itself
@@ -426,17 +435,6 @@ CheckCollision:
 
     mov     ecx, [ebp+8]  ; x
     mov     edx, [ebp+12] ; y
-
-    ; Check wall collision
-    mov     eax, 1
-    cmp     ecx, -1
-    je      check_collision_end
-    cmp     edx, -1
-    je      check_collision_end
-    cmp     ecx, SCREEN_WIDTH
-    je      check_collision_end
-    cmp     edx, SCREEN_HEIGHT
-    je      check_collision_end
 
     ; Check body collision
     mov     [esp], ecx
