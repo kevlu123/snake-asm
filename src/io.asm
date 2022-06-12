@@ -12,6 +12,7 @@
     global Get1Key
     global Get2Key
     global Get3Key
+    global Get4Key
 
 ; HANDLE WINAPI GetStdHandle(
 ;  _In_ DWORD nStdHandle
@@ -101,7 +102,7 @@ Sleep:
     leave
     ret
 
-; int GetKey(uint32_t keycode);
+; uint32_t GetKey(uint32_t keycode);
 GetKey:
     enter   0, 0
 
@@ -115,7 +116,7 @@ GetKey:
     leave
     ret
 
-; int GetUpKey();
+; uint32_t GetUpKey();
 GetUpKey:
     enter   0, 0
 
@@ -126,7 +127,7 @@ GetUpKey:
     leave
     ret
 
-; int GetDownKey();
+; uint32_t GetDownKey();
 GetDownKey:
     enter   0, 0
 
@@ -137,7 +138,7 @@ GetDownKey:
     leave
     ret
 
-; int GetLeftKey();
+; uint32_t GetLeftKey();
 GetLeftKey:
     enter   0, 0
 
@@ -148,7 +149,7 @@ GetLeftKey:
     leave
     ret
 
-; int GetRightKey();
+; uint32_t GetRightKey();
 GetRightKey:
     enter   0, 0
 
@@ -159,7 +160,7 @@ GetRightKey:
     leave
     ret
 
-; int GetSpaceKey();
+; uint32_t GetSpaceKey();
 GetSpaceKey:
     enter   0, 0
 
@@ -170,7 +171,7 @@ GetSpaceKey:
     leave
     ret
 
-; int GetEscKey();
+; uint32_t GetEscKey();
 GetEscKey:
     enter   0, 0
 
@@ -181,7 +182,7 @@ GetEscKey:
     leave
     ret
 
-; int Get1Key();
+; uint32_t Get1Key();
 Get1Key:
     enter   0, 0
 
@@ -192,7 +193,7 @@ Get1Key:
     leave
     ret
 
-; int Get2Key();
+; uint32_t Get2Key();
 Get2Key:
     enter   0, 0
 
@@ -203,11 +204,22 @@ Get2Key:
     leave
     ret
 
-; int Get3Key();
+; uint32_t Get3Key();
 Get3Key:
     enter   0, 0
 
     push    33h
+    call    GetKey
+    pop     ecx
+
+    leave
+    ret
+
+; uint32_t Get4Key();
+Get4Key:
+    enter   0, 0
+
+    push    34h
     call    GetKey
     pop     ecx
 

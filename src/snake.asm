@@ -2,6 +2,7 @@
     extern InitIO
     extern Print
     extern Exit
+    extern Sleep
     extern GetUpKey
     extern GetDownKey
     extern GetLeftKey
@@ -11,7 +12,7 @@
     extern Get1Key
     extern Get2Key
     extern Get3Key
-    extern Sleep
+    extern Get4Key
     extern IncrWithMod
     extern Multiply
     extern Modulo
@@ -22,13 +23,14 @@
 EASY_FRAME_DUR:     EQU 100
 MED_FRAME_DUR:      EQU 50
 HARD_FRAME_DUR:     EQU 25
-SCREEN_WIDTH:       EQU 40
-SCREEN_HEIGHT:      EQU 28
+SCREEN_WIDTH:       EQU 39
+SCREEN_HEIGHT:      EQU 20
 STARTING_FOOD_X:    EQU 30
 STARTING_FOOD_Y:    EQU SCREEN_HEIGHT / 2
 BACKGROUND_CHAR:    EQU 2Eh ; '.'
 PLAYER_CHAR:        EQU 23h ; '#'
 FOOD_CHAR:          EQU 40h ; '@'
+FRAME_SEP_LEN:      EQU 20
 
 SCREEN_SIZE:        EQU (SCREEN_WIDTH * SCREEN_HEIGHT)
 SCREEN_BUF_SIZE:    EQU (SCREEN_SIZE + 2 * SCREEN_HEIGHT) ; Includes \r\n
@@ -38,8 +40,8 @@ LF_CHAR:            EQU 0Ah ; '\n'
 
     section .data
 
-title_screen:
-            db LF_CHAR
+title_screen_with_wrap:
+            times FRAME_SEP_LEN db CR_CHAR, LF_CHAR
             db '    _____ _   _          _  ________   ', LF_CHAR
             db '   / ____| \ | |   /\   | |/ /  ____|  ', LF_CHAR
             db '  | (___ |  \| |  /  \  | . /| |__     ', LF_CHAR
@@ -57,10 +59,36 @@ title_screen:
             db '|                                     |', LF_CHAR
             db '|              3.Hard                 |', LF_CHAR
             db '|                                     |', LF_CHAR
+            db '|           4.Edge Wrap ON            |', LF_CHAR
+            db '|                                     |', LF_CHAR
             db '?-------------------------------------?', LF_CHAR
-title_screen_end:
+title_screen_with_wrap_end:
 
-frame_sep:  times 20 db CR_CHAR, LF_CHAR ; Some arbitrary number of timess
+title_screen_without_wrap:
+            times FRAME_SEP_LEN db CR_CHAR, LF_CHAR
+            db '    _____ _   _          _  ________   ', LF_CHAR
+            db '   / ____| \ | |   /\   | |/ /  ____|  ', LF_CHAR
+            db '  | (___ |  \| |  /  \  | . /| |__     ', LF_CHAR
+            db '   \___ \| . ` | / /\ \ |  < |  __|    ', LF_CHAR
+            db '   ____) | |\  |/ ____ \| . \| |____   ', LF_CHAR
+            db '  |_____/|_| \_/_/    \_\_|\_\______|  ', LF_CHAR
+            db '                                       ', LF_CHAR
+            db '               [ By Kev ]              ', LF_CHAR
+            db '                                       ', LF_CHAR
+            db '?-------------------------------------?', LF_CHAR
+            db '|                                     |', LF_CHAR
+            db '|              1.Easy                 |', LF_CHAR
+            db '|                                     |', LF_CHAR
+            db '|             2.Medium                |', LF_CHAR
+            db '|                                     |', LF_CHAR
+            db '|              3.Hard                 |', LF_CHAR
+            db '|                                     |', LF_CHAR
+            db '|           4.Edge Wrap OFF           |', LF_CHAR
+            db '|                                     |', LF_CHAR
+            db '?-------------------------------------?', LF_CHAR
+title_screen_without_wrap_end:
+
+frame_sep:  times FRAME_SEP_LEN db CR_CHAR, LF_CHAR
 frame_sep_end:
 screen_buf: times SCREEN_BUF_SIZE db 20h
 
@@ -75,8 +103,8 @@ vel_x:      dd 0
 vel_y:      dd 0
 food_x:     dd 0
 food_y:     dd 0
-score:      dd 0
 frame_dur:  dd 50
+edge_wrap:  dd 0
 
     section .text
 
@@ -85,25 +113,43 @@ _main:
     enter   0, 0
     
     call    InitIO
+
+restart:
     call    RunMainMenu
     call    InitGame
-    call    RunMainLoop ; Does not return
+    call    RunMainLoop
+    jmp     restart
 
 ; void RunMainMenu();
 RunMainMenu:
     enter   0, 0
 
     ; Display title
-    push    title_screen_end - title_screen
-    push    title_screen
+    not     dword [edge_wrap]
+display_title:
+    not     dword [edge_wrap]
+    cmp     dword [edge_wrap], 0
+    je      display_title_without_wrap
+    push    title_screen_with_wrap_end - title_screen_with_wrap
+    push    title_screen_with_wrap
+    jmp     display_title_end
+display_title_without_wrap:
+    push    title_screen_without_wrap_end - title_screen_without_wrap
+    push    title_screen_without_wrap
+display_title_end:
     call    Print
     add     esp, 8
 
+    ; Wait until 4 key not pressed
+wait_for_4_not_pressed:
+    call    SmallSleep
+    call    Get4Key
+    cmp     eax, 0
+    jne     wait_for_4_not_pressed
+
     ; Wait for difficulty select
 main_menu_loop:
-    push    16
-    call    Sleep
-    pop     eax
+    call    SmallSleep
 
     call    Get1Key
     cmp     eax, 0
@@ -116,6 +162,10 @@ main_menu_loop:
     call    Get3Key
     cmp     eax, 0
     jne     hard_select
+
+    call    Get4Key
+    cmp     eax, 0
+    jne     display_title
 
     call    CheckQuit
 
@@ -204,18 +254,24 @@ end_move:
     ; Calculate new position
     mov     ecx, [player_x]
     add     ecx, [vel_x]
+    cmp     dword [edge_wrap], 0
+    je      dont_wrap_x
     push    SCREEN_WIDTH
     push    ecx
     call    Modulo
     mov     ecx, eax
+dont_wrap_x:
     mov     [player_x], ecx
 
     mov     edx, [player_y]
     add     edx, [vel_y]
+    cmp     dword [edge_wrap], 0
+    je      dont_wrap_y
     push    SCREEN_HEIGHT
     push    edx
     call    Modulo
     mov     edx, eax
+dont_wrap_y:
     mov     [player_y], edx
 
     ; Check if snake has collided with wall or itself
@@ -231,7 +287,10 @@ end_move:
     je      hasnt_lost
 
     call    RunLoseLoop
-    jmp     main_loop
+    pop     ebx
+    leave
+    ret
+
 hasnt_lost:
 
     ; Move snake
@@ -304,9 +363,6 @@ init_snake_loop:
     ; Set food position
     mov     dword [food_x], STARTING_FOOD_X
     mov     dword [food_y], STARTING_FOOD_Y
-
-    ; Reset score
-    mov     dword [score], 0
 
     pop     ebx
     leave
@@ -415,9 +471,6 @@ FoodEaten:
     call    Rand
     add     esp, 8
     mov     [food_y], eax
-    
-    ; Increment score
-    inc     dword [score]
 
     leave
     ret
@@ -429,6 +482,17 @@ CheckCollision:
 
     mov     ecx, [ebp+8]  ; x
     mov     edx, [ebp+12] ; y
+
+    ; Check wall collision
+    mov     eax, 1
+    cmp     ecx, -1
+    je      check_collision_end
+    cmp     edx, -1
+    je      check_collision_end
+    cmp     ecx, SCREEN_WIDTH
+    je      check_collision_end
+    cmp     edx, SCREEN_HEIGHT
+    je      check_collision_end
 
     ; Check body collision
     mov     [esp], ecx
@@ -479,15 +543,19 @@ check_body_collision_end:
 ; void RunLoseLoop();
 RunLoseLoop:
     enter   0, 0
-    push    ebx
 
-    ; Wait until space bar pressed
+    ; Wait until no keys are pressed
+waiting_for_key_up:
+    call    SmallSleep
+    call    GetAnyKey
+    cmp     eax, 0
+    jne     waiting_for_key_up
+
+    ; Wait until key is pressed
 waiting_for_reset:
-    push    16
-    call    Sleep
-    pop     eax
+    call    SmallSleep
 
-    call    GetSpaceKey
+    call    GetAnyKey
     cmp     eax, 0
     jne     stop_lose_loop
 
@@ -496,11 +564,6 @@ waiting_for_reset:
     jmp     waiting_for_reset
 
 stop_lose_loop:
-
-    ; Reinitialize game
-    call    InitGame
-
-    pop     ebx
     leave
     ret
 
@@ -591,5 +654,39 @@ CheckQuit:
     call    Exit
 dont_quit:
 
+    leave
+    ret
+
+; void SmallSleep();
+SmallSleep:
+    enter   0, 0
+
+    push    16
+    call    Sleep
+    pop     eax
+
+    leave
+    ret
+
+; uint32_t GetAnyKey();
+; Returns nonzero if arrow keys or spacebar is pressed, otherwise 0
+GetAnyKey:
+    enter   0, 0
+    push    ebx
+
+    mov     ebx, 0
+    call    GetSpaceKey
+    add     ebx, eax
+    call    GetLeftKey
+    add     ebx, eax
+    call    GetRightKey
+    add     ebx, eax
+    call    GetUpKey
+    add     ebx, eax
+    call    GetDownKey
+    add     ebx, eax
+    mov     eax, ebx
+
+    pop     ebx
     leave
     ret
