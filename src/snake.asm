@@ -140,12 +140,12 @@ display_title_end:
     call    Print
     add     esp, 8
 
-    ; Wait until 4 key not pressed
-wait_for_4_not_pressed:
+    ; Wait until key not pressed
+wait_for_keys_not_pressed:
     call    SmallSleep
-    call    Get4Key
+    call    GetAnyKey
     cmp     eax, 0
-    jne     wait_for_4_not_pressed
+    jne     wait_for_keys_not_pressed
 
     ; Wait for difficulty select
 main_menu_loop:
@@ -460,6 +460,7 @@ FoodEaten:
     enter   0, 0
 
     ; Pick new location for food
+pick_food_location:
     push    SCREEN_WIDTH
     push    0
     call    Rand
@@ -472,13 +473,19 @@ FoodEaten:
     add     esp, 8
     mov     [food_y], eax
 
+    push    dword [food_y]
+    push    dword [food_x]
+    call    CheckBodyCollision
+    add     esp, 8
+    cmp     eax, 0
+    jne     pick_food_location
+
     leave
     ret
 
 ; uint32_t CheckCollision(uint32_t x, uint32_t y);
 CheckCollision:
     enter   0, 0
-    sub     esp, 8
 
     mov     ecx, [ebp+8]  ; x
     mov     edx, [ebp+12] ; y
@@ -495,27 +502,45 @@ CheckCollision:
     je      check_collision_end
 
     ; Check body collision
+    push    edx
+    push    ecx
+    call    CheckBodyCollision
+    add     esp, 8
+    cmp     eax, 0
+    mov     eax, 1
+    jne     check_collision_end
+
+    mov     eax, 0
+check_collision_end:
+    leave
+    ret
+
+; uint32_t CheckBodyCollision(uint32_t x, uint32_t y);
+CheckBodyCollision:
+    enter   0, 0
+    sub     esp, 8
+    
+    mov     ecx, [ebp+8]  ; x
+    mov     edx, [ebp+12] ; y
+
     mov     [esp], ecx
     mov     [esp+4], edx
     lea     eax, [esp]
     push    1
     push    eax
-    push    CheckBodyCollision
+    push    CheckBodyUnitCollision
     call    IterateBody
     add     esp, 12
-    cmp     eax, 0
-    mov     eax, 1
-    je      check_collision_end
+    not     eax
+    and     eax, 1
 
-    mov     eax, 0
-check_collision_end:
     add     esp, 8
     leave
     ret
 
-; uint32_t CheckBodyCollision(uint32_t x, uint32_t y, void* userdata);
+; uint32_t CheckBodyUnitCollision(uint32_t x, uint32_t y, void* userdata);
 ; Returns 0 if there was a collision, otherwise 1.
-CheckBodyCollision:
+CheckBodyUnitCollision:
     enter   0, 0
     push    ebx
 
@@ -669,7 +694,7 @@ SmallSleep:
     ret
 
 ; uint32_t GetAnyKey();
-; Returns nonzero if arrow keys or spacebar is pressed, otherwise 0
+; Returns nonzero if specific keys are pressed, otherwise 0
 GetAnyKey:
     enter   0, 0
     push    ebx
@@ -685,6 +710,15 @@ GetAnyKey:
     add     ebx, eax
     call    GetDownKey
     add     ebx, eax
+    call    Get1Key
+    add     ebx, eax
+    call    Get2Key
+    add     ebx, eax
+    call    Get3Key
+    add     ebx, eax
+    call    Get4Key
+    add     ebx, eax
+
     mov     eax, ebx
 
     pop     ebx
