@@ -439,7 +439,7 @@ CheckCollision:
     ; Check body collision
     mov     [esp], ecx
     mov     [esp+4], edx
-    lea     eax, [esp+4]
+    lea     eax, [esp]
     push    1
     push    eax
     push    CheckBodyCollision
