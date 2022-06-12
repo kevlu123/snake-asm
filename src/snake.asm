@@ -66,7 +66,7 @@ screen_buf: times SCREEN_BUF_SIZE db 20h
 
 init_body:  dd 1, SCREEN_HEIGHT / 2, 2, SCREEN_HEIGHT / 2, 3, SCREEN_HEIGHT / 2
 init_body_end:
-body:       times SCREEN_SIZE * 2 dd 0 ; struct { uint32_t x, y; } body[SCREEN_SIZE] = {0};
+body:       times SCREEN_SIZE * 2 dd 0 ; struct { uint32_t x, y; } body[SCREEN_SIZE];
 head:       dd 0
 tail:       dd 0
 player_x:   dd 0
@@ -87,10 +87,7 @@ _main:
     call    InitIO
     call    RunMainMenu
     call    InitGame
-    call    RunMainLoop
-
-    ; Does not return
-    call    Exit
+    call    RunMainLoop ; Does not return
 
 ; void RunMainMenu();
 RunMainMenu:
@@ -119,6 +116,8 @@ main_menu_loop:
     call    Get3Key
     cmp     eax, 0
     jne     hard_select
+
+    call    CheckQuit
 
     jmp     main_menu_loop
 
@@ -149,6 +148,9 @@ main_loop:
 
     ; Update rng
     call    TickRand
+
+    ; Check if should quit
+    call    CheckQuit
 
     ; Move down
     call    GetDownKey
@@ -229,9 +231,6 @@ end_move:
     je      hasnt_lost
 
     call    RunLoseLoop
-    cmp     eax, 0
-    jne     end_main_loop
-
     jmp     main_loop
 hasnt_lost:
 
@@ -273,11 +272,6 @@ food_eaten:
     call    PresentFrame
 
     jmp     main_loop
-
-end_main_loop:
-    pop     ebx
-    leave
-    ret
 
 ; void InitGame();
 InitGame:
@@ -482,8 +476,7 @@ check_body_collision_end:
     leave
     ret
 
-; uint32_t RunLoseLoop();
-; Returns 1 if game should exit, otherwise 0
+; void RunLoseLoop();
 RunLoseLoop:
     enter   0, 0
     push    ebx
@@ -496,13 +489,9 @@ waiting_for_reset:
 
     call    GetSpaceKey
     cmp     eax, 0
-    mov     ebx, 0
     jne     stop_lose_loop
 
-    call    GetEscKey
-    cmp     eax, 0
-    mov     ebx, 1
-    jne     stop_lose_loop
+    call    CheckQuit
 
     jmp     waiting_for_reset
 
@@ -511,12 +500,13 @@ stop_lose_loop:
     ; Reinitialize game
     call    InitGame
 
-    mov     eax, ebx
     pop     ebx
     leave
     ret
 
-; uint32_t IterateBody(uint32_t(*fn)(uint32_t x, uint32_t y, void* userdata), void* userdata, uint32_t skipFirst);
+; uint32_t IterateBody(uint32_t(*fn)(uint32_t x, uint32_t y, void* userdata),
+;                      void* userdata,
+;                      uint32_t skipFirst);
 IterateBody:
     enter   0, 0
     push    ebx
@@ -588,5 +578,18 @@ TryChangeDirection:
     mov     eax, 1
 change_dir_end:
     pop ebx
+    leave
+    ret
+
+; void CheckQuit();
+CheckQuit:
+    enter   0, 0
+
+    call    GetEscKey
+    cmp     eax, 0
+    je      dont_quit
+    call    Exit
+dont_quit:
+
     leave
     ret
